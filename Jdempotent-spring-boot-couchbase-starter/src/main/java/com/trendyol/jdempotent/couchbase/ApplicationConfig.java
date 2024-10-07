@@ -3,14 +3,18 @@ package com.trendyol.jdempotent.couchbase;
 import com.couchbase.client.java.Collection;
 import com.trendyol.jdempotent.core.aspect.IdempotentAspect;
 import com.trendyol.jdempotent.core.callback.ErrorConditionalCallback;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.Objects;
+import java.util.Optional;
+
 @Configuration
 @ConditionalOnProperty(
-        prefix="jdempotent", name = "enable",
+        prefix = "jdempotent", name = "enable",
         havingValue = "true",
         matchIfMissing = true)
 public class ApplicationConfig {
@@ -23,17 +27,16 @@ public class ApplicationConfig {
 
     @Bean
     @ConditionalOnProperty(
-            prefix="jdempotent", name = "enable",
+            prefix = "jdempotent", name = "enable",
             havingValue = "true",
             matchIfMissing = true)
     @ConditionalOnClass(ErrorConditionalCallback.class)
-    public IdempotentAspect getIdempotentAspect(Collection collection, ErrorConditionalCallback errorConditionalCallback) {
-        return new IdempotentAspect(new CouchbaseIdempotentRepository(couchbaseConfig, collection), errorConditionalCallback);
+    public IdempotentAspect getIdempotentAspect(
+            Collection collection,
+            @Autowired(required = false) ErrorConditionalCallback errorConditionalCallback) {
+        CouchbaseIdempotentRepository repository = new CouchbaseIdempotentRepository(couchbaseConfig, collection);
+        return Optional.ofNullable(errorConditionalCallback)
+                .map(callback -> new IdempotentAspect(repository, callback))
+                .orElseGet(() -> new IdempotentAspect(repository));
     }
-
-    @Bean
-    public IdempotentAspect getIdempotentAspect(Collection collection) {
-        return new IdempotentAspect(new CouchbaseIdempotentRepository(couchbaseConfig, collection));
-    }
-
 }
